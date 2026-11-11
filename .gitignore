@@ -1,0 +1,5 @@
+node_modules/
+scratch_*.mjs
+*.log
+.DS_Store
+.env

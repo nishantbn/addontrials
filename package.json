@@ -1,0 +1,14 @@
+{
+  "name": "nuvio-streamplay",
+  "version": "1.0.0",
+  "description": "High-reliability StreamPlay Integration for Nuvio & Stremio",
+  "main": "src/index.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.mjs",
+    "test": "node test/verify_pipeline.mjs"
+  },
+  "keywords": ["nuvio", "stremio", "streamplay", "addon"],
+  "author": "",
+  "license": "ISC"
+}

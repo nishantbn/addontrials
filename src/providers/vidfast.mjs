@@ -4,6 +4,8 @@
  * Uses NextJS token extraction and enc-dec.app resolver.
  */
 
+import { formatStreamCard } from '../utils/formatter.mjs';
+
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
   'Referer': 'https://vidfast.vc/',
@@ -119,10 +121,22 @@ export async function getVidFastStreams({ tmdbId, type, season, episode }) {
         if (typeof playUrl !== 'string' || !playUrl.startsWith('http')) return null;
 
         const serverName = server.name || `Server ${idx + 1}`;
+        const isTv = season !== undefined;
+        const epSuffix = isTv && season && episode ? ` S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}` : '';
+        const displayTitle = `${title || 'Video'}${epSuffix}`;
+
+        const formatted = formatStreamCard({
+          provider: 'VidFast',
+          server: serverName,
+          mediaTitle: displayTitle,
+          year,
+          quality: '1080p',
+          isSeries: isTv
+        });
 
         return {
-          name: 'StreamPlay [VidFast]',
-          title: `${serverName} | Direct Stream`,
+          name: formatted.name,
+          title: formatted.title,
           url: playUrl,
           behaviorHints: {
             notWebReady: false

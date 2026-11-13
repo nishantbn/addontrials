@@ -106,6 +106,7 @@ async function handleHlsProxy(req, res, targetUrl, host, requestPath = '') {
       const baseUrl = new URL(targetUrl);
       const lines = text.split('\n');
 
+      const proto = req.headers['x-forwarded-proto'] || (req.socket.encrypted ? 'https' : 'http');
       const rewritten = lines.map(line => {
         const trimmed = line.trim();
         if (!trimmed) return line;
@@ -113,7 +114,7 @@ async function handleHlsProxy(req, res, targetUrl, host, requestPath = '') {
           if (trimmed.startsWith('#EXT-X-KEY:') && trimmed.includes('URI="')) {
             return trimmed.replace(/URI="([^"]+)"/, (_, uri) => {
               const resUri = new URL(uri, baseUrl).href;
-              return `URI="http://${host}/proxy/hls/segment.ts?url=${encodeURIComponent(resUri)}"`;
+              return `URI="${proto}://${host}/proxy/hls/segment.ts?url=${encodeURIComponent(resUri)}"`;
             });
           }
           return line;
@@ -123,7 +124,7 @@ async function handleHlsProxy(req, res, targetUrl, host, requestPath = '') {
         // If line is media segment, route to segment.ts
         const childIsPlaylist = trimmed.includes('.m3u8') || trimmed.includes('/playlist') || text.includes('#EXT-X-STREAM-INF');
         const proxySubpath = childIsPlaylist ? 'playlist.m3u8' : 'segment.ts';
-        return `http://${host}/proxy/hls/${proxySubpath}?url=${encodeURIComponent(resolved)}`;
+        return `${proto}://${host}/proxy/hls/${proxySubpath}?url=${encodeURIComponent(resolved)}`;
       }).join('\n');
 
       return res.end(rewritten);
@@ -270,7 +271,8 @@ const server = http.createServer(async (req, res) => {
       const meta = await resolveMetadata(rawType, id);
       console.log(`[StreamPlay] Request: ${rawType} "${meta.title || id}" (TMDB: ${meta.tmdbId}, IMDb: ${meta.imdbId}) S:${season || '-'} E:${episode || '-'}`);
 
-      const proxyPrefix = `http://${host}/proxy/hls/manifest.m3u8?url=`;
+      const proto = req.headers['x-forwarded-proto'] || (req.socket.encrypted ? 'https' : 'http');
+      const proxyPrefix = `${proto}://${host}/proxy/hls/manifest.m3u8?url=`;
 
       const providerPromises = [
         getVidyStreams({
@@ -322,7 +324,35 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
-      console.log(`[StreamPlay] Resolved ${allStreams.length} stream sources for "${meta.title || id}"`);
+      // Quality Rank: 4K (4000) > 1080p (3000) > Auto Adaptive (2500) > 720p (2000) > 480p (1000)
+      function getQualityScore(s) {
+        const text = `${s.name} ${s.title}`.toLowerCase();
+        if (text.includes('4k') || text.includes('2160p') || text.includes('uhd')) return 4000;
+        if (text.includes('1080p') || text.includes('fhd')) return 3000;
+        if (text.includes('auto')) return 2500;
+        if (text.includes('720p') || text.includes('hd')) return 2000;
+        if (text.includes('480p') || text.includes('sd')) return 1000;
+        return 500;
+      }
+
+      function getSizeScore(s) {
+        const text = `${s.name} ${s.title}`;
+        const m = text.match(/💾\s*(\d+(?:\.\d+)?)\s*(GB|MB)/i) || text.match(/\[?\b(\d+(?:\.\d+)?)\s*(GB|MB)\b\]?/i);
+        if (m) {
+          const val = parseFloat(m[1]);
+          return m[2].toUpperCase() === 'GB' ? val * 1024 : val;
+        }
+        return 0;
+      }
+
+      // Sort streams descending by quality, then by file size / bitrate
+      allStreams.sort((a, b) => {
+        const qDiff = getQualityScore(b) - getQualityScore(a);
+        if (qDiff !== 0) return qDiff;
+        return getSizeScore(b) - getSizeScore(a);
+      });
+
+      console.log(`[StreamPlay] Resolved ${allStreams.length} stream sources for "${meta.title || id}" (Sorted descending)`);
       return sendJson(res, 200, { streams: allStreams });
     } catch (err) {
       console.error('[StreamPlay] Pipeline error:', err);

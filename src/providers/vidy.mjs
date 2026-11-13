@@ -5,6 +5,7 @@
  */
 
 import { decryptVidy } from '../utils/crypto.mjs';
+import { formatStreamCard } from '../utils/formatter.mjs';
 
 // Complete fallback server list matching CloudStream StreamPlay v695
 const FALLBACK_SERVERS = [
@@ -180,6 +181,8 @@ export async function getVidyStreams({ tmdbId, imdbId, title, year, type, season
         };
 
         const serverName = server.charAt(0).toUpperCase() + server.slice(1);
+        const epSuffix = isTv && season && episode ? ` S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}` : '';
+        const displayTitle = `${title || 'Video'}${epSuffix}`;
 
         if (Array.isArray(data.sources)) {
           for (const src of data.sources) {
@@ -188,9 +191,22 @@ export async function getVidyStreams({ tmdbId, imdbId, title, year, type, season
             const quality = src.quality || (src.url.includes('1080') ? '1080p' : src.url.includes('720') ? '720p' : 'Auto');
             const isHls = src.url.includes('.m3u8') || src.format === 'hls' || src.isM3U8;
 
+            const formatted = formatStreamCard({
+              provider: 'Vidy',
+              server: serverName,
+              mediaTitle: displayTitle,
+              year,
+              quality,
+              container: isHls ? 'HLS' : 'MP4',
+              codec: 'AVC',
+              audio: server === 'paris' ? 'French' : server === 'munich' ? 'German' : 'English',
+              subtitles,
+              isSeries: isTv
+            });
+
             streams.push({
-              name: `StreamPlay [Vidy]`,
-              title: `${serverName} • ${quality} • HLS`,
+              name: formatted.name,
+              title: formatted.title,
               url: wrapUrl(src.url),
               behaviorHints: {
                 notWebReady: false,

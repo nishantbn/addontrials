@@ -6,6 +6,7 @@
 
 import { getDomain } from '../utils/domains.mjs';
 import { unshortenLink } from '../utils/unshorten.mjs';
+import { formatStreamCard } from '../utils/formatter.mjs';
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
@@ -143,16 +144,25 @@ export async function get4KHDHubStreams({ title, year, type, season, episode }) 
         }
 
         let qualityTag = '1080p';
-        if (/2160p|4k|uhd/i.test(entry.itemTitle)) qualityTag = '4K UHD';
+        if (/2160p|4k|uhd/i.test(entry.itemTitle)) qualityTag = '4K';
         else if (/720p/i.test(entry.itemTitle)) qualityTag = '720p';
 
-        let sizeTag = '';
-        const sizeMatch = entry.itemTitle.match(/(\d+(?:\.\d+)?\s*(?:GB|MB))/i);
-        if (sizeMatch) sizeTag = ` | ${sizeMatch[1]}`;
+        const epSuffix = isSeries && season && episode ? ` S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}` : '';
+        const displayTitle = `${title || 'Video'}${epSuffix}`;
+
+        const formatted = formatStreamCard({
+          provider: '4KHDHub',
+          server: 'HubCloud',
+          mediaTitle: displayTitle,
+          year,
+          rawReleaseTitle: entry.itemTitle,
+          quality: qualityTag,
+          isSeries
+        });
 
         return {
-          name: 'StreamPlay [4KHDHub]',
-          title: `${qualityTag}${sizeTag} | HubCloud Direct`,
+          name: formatted.name,
+          title: formatted.title,
           url: streamUrl,
           behaviorHints: {
             notWebReady: false

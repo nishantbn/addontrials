@@ -4,6 +4,8 @@
  * Queries VegaMovies search API by IMDB ID / Title and extracts direct V-Cloud, R2, and HubCloud streams.
  */
 
+import { formatStreamCard } from '../utils/formatter.mjs';
+
 const VEGA_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
   'Referer': 'https://vegamovies.lease/'
@@ -163,9 +165,23 @@ export async function getVegaMoviesStreams({ imdbId, title, year, type, season, 
                 const directList = await resolveVcloud(vcloudHref);
                 for (const d of directList) {
                   const quality = d.url.includes('1080') ? '1080p' : d.url.includes('720') ? '720p' : d.url.includes('2160') || d.url.includes('4k') ? '4K' : 'HD';
+                  const epSuffix = isTv && season && episode ? ` S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}` : '';
+                  const displayTitle = `${title || 'Video'}${epSuffix}`;
+
+                  const formatted = formatStreamCard({
+                    provider: 'VegaMovies',
+                    server: d.label || 'Fast R2',
+                    mediaTitle: displayTitle,
+                    year,
+                    rawReleaseTitle: match?.document?.post_title || cand.text,
+                    quality,
+                    isSeries: isTv,
+                    extra: cand.text
+                  });
+
                   streams.push({
-                    name: `StreamPlay [VegaMovies]`,
-                    title: `V-Cloud (${d.label}) • ${quality}`,
+                    name: formatted.name,
+                    title: formatted.title,
                     url: d.url,
                     behaviorHints: {
                       notWebReady: false
@@ -180,9 +196,24 @@ export async function getVegaMoviesStreams({ imdbId, title, year, type, season, 
         } else if (cand.href.includes('vcloud')) {
           const directList = await resolveVcloud(cand.href);
           for (const d of directList) {
+            const quality = d.url.includes('1080') ? '1080p' : d.url.includes('720') ? '720p' : d.url.includes('2160') || d.url.includes('4k') ? '4K' : 'HD';
+            const epSuffix = isTv && season && episode ? ` S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}` : '';
+            const displayTitle = `${title || 'Video'}${epSuffix}`;
+
+            const formatted = formatStreamCard({
+              provider: 'VegaMovies',
+              server: d.label || 'Fast R2',
+              mediaTitle: displayTitle,
+              year,
+              rawReleaseTitle: match?.document?.post_title || cand.text,
+              quality,
+              isSeries: isTv,
+              extra: cand.text
+            });
+
             streams.push({
-              name: `StreamPlay [VegaMovies]`,
-              title: `V-Cloud (${d.label})`,
+              name: formatted.name,
+              title: formatted.title,
               url: d.url
             });
           }
@@ -206,9 +237,19 @@ export async function getVegaMoviesStreams({ imdbId, title, year, type, season, 
         const directList = await resolveVcloud(href);
         for (const d of directList) {
           const quality = d.url.includes('1080') ? '1080p' : d.url.includes('720') ? '720p' : d.url.includes('2160') || d.url.includes('4k') ? '4K' : 'HD';
+          const formatted = formatStreamCard({
+            provider: 'VegaMovies',
+            server: d.label || 'Fast R2',
+            mediaTitle: title,
+            year,
+            rawReleaseTitle: match?.document?.post_title,
+            quality,
+            isSeries: false
+          });
+
           streams.push({
-            name: `StreamPlay [VegaMovies]`,
-            title: `V-Cloud (${d.label}) • ${quality}`,
+            name: formatted.name,
+            title: formatted.title,
             url: d.url
           });
         }

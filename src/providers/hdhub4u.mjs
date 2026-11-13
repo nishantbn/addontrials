@@ -6,6 +6,7 @@
 
 import { getDomain } from '../utils/domains.mjs';
 import { unshortenLink } from '../utils/unshorten.mjs';
+import { formatStreamCard } from '../utils/formatter.mjs';
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
@@ -145,9 +146,22 @@ export async function getHDHub4uStreams({ title, year, type, season, episode }) 
                             entry.title.includes('1080p') ? '1080p' :
                             entry.title.includes('720p') ? '720p' : 'HD';
 
+            const epSuffix = isSeries && season && episode ? ` S${String(season).padStart(2, '0')}E${String(episode).padStart(2, '0')}` : '';
+            const displayTitle = `${title || 'Video'}${epSuffix}`;
+
+            const formatted = formatStreamCard({
+              provider: 'HDHub4u',
+              server: 'HubCloud',
+              mediaTitle: displayTitle,
+              year,
+              rawReleaseTitle: entry.title,
+              quality,
+              isSeries
+            });
+
             streams.push({
-              name: `StreamPlay [HDHub4u]`,
-              title: `${quality} • HubCloud Direct`,
+              name: formatted.name,
+              title: formatted.title,
               url: directStream,
               behaviorHints: {
                 notWebReady: false

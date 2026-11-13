@@ -1,5 +1,6 @@
 node_modules/
 scratch_*.mjs
 *.log
+*.exe
 .DS_Store
 .env

@@ -17,7 +17,15 @@ const FALLBACK_SERVERS = [
 export const VIDY_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
   'Origin': 'https://www.vidy.st',
-  'Referer': 'https://www.vidy.st/'
+  'Referer': 'https://www.vidy.st/',
+  'Accept': '*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+  'Sec-Ch-Ua-Mobile': '?0',
+  'Sec-Ch-Ua-Platform': '"Windows"',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'cross-site'
 };
 
 let cachedServers = null;
@@ -104,12 +112,18 @@ export async function getVidyStreams({ tmdbId, imdbId, title, year, type, season
     // 1. Fetch seed from api.wecollege.net
     const seedRes = await fetch(`https://api.wecollege.net/seed?mediaId=${tmdbId}`, {
       headers: VIDY_HEADERS,
-      signal: AbortSignal.timeout(4000)
+      signal: AbortSignal.timeout(5000)
     });
-    if (!seedRes.ok) return [];
+    if (!seedRes.ok) {
+      console.warn(`[Vidy] Seed fetch failed: HTTP ${seedRes.status} ${seedRes.statusText}`);
+      return [];
+    }
     const seedData = await seedRes.json();
     const seed = seedData?.seed;
-    if (!seed) return [];
+    if (!seed) {
+      console.warn('[Vidy] Missing seed in response:', seedData);
+      return [];
+    }
 
     const isTv = type === 'series' || season !== undefined;
     const mediaType = isTv ? 'tv' : 'movie';
@@ -137,9 +151,14 @@ export async function getVidyStreams({ tmdbId, imdbId, title, year, type, season
 
         const res = await fetch(url, {
           headers: VIDY_HEADERS,
-          signal: AbortSignal.timeout(4000)
+          signal: AbortSignal.timeout(5000)
         });
-        if (!res.ok) return null;
+        if (!res.ok) {
+          if (res.status === 403) {
+            console.warn(`[Vidy] Server [${server}] returned 403 Forbidden`);
+          }
+          return null;
+        }
         const cipherText = (await res.text()).trim();
         if (!cipherText) return null;
 

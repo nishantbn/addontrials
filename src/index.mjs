@@ -250,6 +250,39 @@ const server = http.createServer(async (req, res) => {
     return handleHlsProxy(req, res, targetUrl, host, pathname);
   }
 
+  // 3.5 Diagnostic Route for Vidy
+  if (pathname === '/debug/vidy') {
+    const tmdbId = url.searchParams.get('tmdbId') || '550';
+    const diag = { tmdbId, timestamp: new Date().toISOString() };
+    try {
+      const sRes = await fetch(`https://api.wecollege.net/seed?mediaId=${tmdbId}`, {
+        headers: VIDY_HEADERS,
+        signal: AbortSignal.timeout(6000)
+      });
+      diag.seedHttpStatus = sRes.status;
+      diag.seedHttpStatusText = sRes.statusText;
+      diag.seedHeaders = Object.fromEntries(sRes.headers.entries());
+      const sBody = await sRes.text();
+      diag.seedBody = sBody.slice(0, 500);
+      try {
+        const seedJson = JSON.parse(sBody);
+        diag.seed = seedJson.seed;
+        // Also test calling miami server
+        const mRes = await fetch(`https://api.wecollege.net/miami/sources?title=Fight%20Club&mediaType=movie&year=1999&tmdbId=${tmdbId}&enc=2&seed=${diag.seed}`, {
+          headers: VIDY_HEADERS,
+          signal: AbortSignal.timeout(6000)
+        });
+        diag.miamiHttpStatus = mRes.status;
+        diag.miamiBody = (await mRes.text()).slice(0, 500);
+      } catch (err) {
+        diag.miamiError = err.message;
+      }
+    } catch (e) {
+      diag.seedError = e.message;
+    }
+    return sendJson(res, 200, diag);
+  }
+
   // 4. Stream resolution: /stream/:type/:id.json
   const streamMatch = pathname.match(/^\/stream\/(movie|series)\/([^/]+)\.json$/);
   if (streamMatch) {
